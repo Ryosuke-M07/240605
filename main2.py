@@ -15,7 +15,8 @@ from qdrant_client.models import Distance, VectorParams
 QDRANT_PATH = "./local_qdrant"
 
 def init_page():
-    st.set_page_config(page_title="Ask My PDF(s)", page_icon="🤗")
+    st.set_page_config(page_title="RAG KnowledgeHub", page_icon="🌌")
+    st.sidebar.title("RAG KnowledgeHub")
     st.session_state.costs = []
 
 def hash_string(input_string):
@@ -69,6 +70,16 @@ def build_qa_model(llm, openai_api_key, collection_name):
     qdrant = load_qdrant(openai_api_key, collection_name)
     retriever = qdrant.as_retriever(search_type="similarity", search_kwargs={"k":10})
     return RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True, verbose=True)
+
+def delete_collection(openai_api_key, collection_name):
+    client = QdrantClient(path=QDRANT_PATH)
+    collections = client.get_collections().collections
+    collection_names = [collection.name for collection in collections]
+    if collection_name in collection_names:
+        client.delete_collection(collection_name=collection_name)
+        st.success("データベースが正常に削除されました。")
+    else:
+        st.warning("削除するデータベースが見つかりません。")
 
 def page_pdf_upload_and_build_vector_db(openai_api_key, collection_name):
     st.title("PDF Upload")
@@ -132,11 +143,14 @@ def main():
         
         collection_name = generate_unique_collection_name(st.session_state['username'], st.session_state['password'])
 
-        selection = st.sidebar.radio("Go to", ["PDF Upload", "Ask My PDF(s)"])
+        selection = st.sidebar.radio("Go to", ["PDF Upload", "Ask My PDF(s)", "Delete Database"])
         if selection == "PDF Upload":
             page_pdf_upload_and_build_vector_db(openai_api_key, collection_name)
         elif selection == "Ask My PDF(s)":
             page_ask_my_pdf(openai_api_key, collection_name)
+        elif selection == "Delete Database":
+            if st.button("データベースを削除"):
+                delete_collection(openai_api_key, collection_name)
         
         costs = st.session_state.get('costs', [])
         st.sidebar.markdown("## Costs")
