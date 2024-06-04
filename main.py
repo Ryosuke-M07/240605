@@ -16,7 +16,6 @@ QDRANT_PATH = "./local_qdrant"
 
 def init_page():
     st.set_page_config(page_title="Ask My PDF(s)", page_icon="🤗")
-    st.sidebar.title("Nav")
     st.session_state.costs = []
 
 def hash_string(input_string):
