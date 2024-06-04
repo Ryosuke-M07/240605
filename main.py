@@ -15,7 +15,7 @@ from qdrant_client.models import Distance, VectorParams
 QDRANT_PATH = "./local_qdrant"
 
 def init_page():
-    st.set_page_config(page_title="Ask My PDF(s)", page_icon="🤗")
+    st.set_page_config(page_title="RAG KnowledgeHub", page_icon="🌎")
     st.sidebar.title("RAG KnowledgeHub")
     st.session_state.costs = []
 
