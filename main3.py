@@ -76,6 +76,13 @@ def delete_collection(openai_api_key, collection_name):
     if collection_name in collection_names:
         client.delete_collection(collection_name=collection_name)
         st.success("データベースが正常に削除されました。")
+        # Reset uploaded PDFs
+        if os.path.exists(UPLOAD_FOLDER):
+            for file in os.listdir(UPLOAD_FOLDER):
+                file_path = os.path.join(UPLOAD_FOLDER, file)
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+            st.success("アップロードされたPDFの一覧もリセットされました。")
     else:
         st.warning("削除するデータベースが見つかりません。")
 
