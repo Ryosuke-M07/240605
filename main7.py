@@ -18,25 +18,30 @@ QDRANT_PATH = "./local_qdrant"
 UPLOAD_FOLDER = "uploaded_pdfs"
 SESSION_FILE = "./data/session_data.json"
 
+# ページの初期化を行う関数
 def init_page():
     st.set_page_config(page_title="RAG KnowledgeHub", page_icon="🌌")
     st.sidebar.title("RAG KnowledgeHub")
     if 'costs' not in st.session_state:
         st.session_state.costs = []
 
+# 文字列をハッシュ化する関数
 def hash_string(input_string):
     return hashlib.sha256(input_string.encode()).hexdigest()
 
+# ユーザー名とパスワードからセッションIDを生成する関数
 def generate_session_id(username, password):
     user_hash = hash_string(username + password)
     st.session_state.session_id = user_hash
 
+# ユーザー名とパスワードからユニークなコレクション名を生成する関数
 def generate_unique_collection_name(username, password):
     user_hash = hash_string(username + password)
     collection_name = f"collection_{user_hash}"
     st.session_state.collection_name = collection_name
     return collection_name
 
+# セッション情報をJSONファイルに保存する関数
 def save_session(username, password):
     session_data = {
         "username": username,
@@ -49,6 +54,7 @@ def save_session(username, password):
     with open(SESSION_FILE, 'w') as f:
         json.dump(session_data, f)
 
+# JSONファイルからセッション情報を読み込む関数
 def load_session():
     if os.path.exists(SESSION_FILE):
         with open(SESSION_FILE, 'r') as f:
@@ -57,25 +63,26 @@ def load_session():
         return True
     return False
 
+# モデルを選択する関数
 def select_model(openai_api_key):
-    model = st.sidebar.radio("Choose a model:", ("GPT-3.5", "GPT-3.5-16k", "GPT-4", "GPT-4o"))
+    model = st.sidebar.radio("Choose a model:", ("GPT-3.5", "GPT-3.5-16k", "GPT-4"))
     if model == "GPT-3.5":
         st.session_state.model_name = "gpt-3.5-turbo"
     elif model == "GPT-3.5-16k":
         st.session_state.model_name = "gpt-3.5-turbo-16k"
-    elif model == "GPT-4":
+    else:
         st.session_state.model_name = "gpt-4"
-    elif model == "GPT-4o":
-        st.session_state.model_name = "gpt-4o"
     st.session_state.max_token = OpenAI.modelname_to_contextsize(st.session_state.model_name) - 300
     return ChatOpenAI(temperature=0, model_name=st.session_state.model_name, api_key=openai_api_key)
 
+# PDFファイルからテキストを抽出する関数
 def get_pdf_text(uploaded_file):
     pdf_reader = PdfReader(uploaded_file)
     text = '\n\n'.join([page.extract_text() for page in pdf_reader.pages])
     text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(model_name="text-embedding-ada-002", chunk_size=500, chunk_overlap=0)
     return text_splitter.split_text(text)
 
+# Qdrantクライアントを初期化する関数
 def load_qdrant(openai_api_key, collection_name):
     client = QdrantClient(path=QDRANT_PATH)
     collections = client.get_collections().collections
@@ -85,15 +92,18 @@ def load_qdrant(openai_api_key, collection_name):
         print('collection created')
     return Qdrant(client=client, collection_name=collection_name, embeddings=OpenAIEmbeddings(openai_api_key=openai_api_key))
 
+# ベクトルストアを構築する関数
 def build_vector_store(pdf_text, openai_api_key, collection_name):
     qdrant = load_qdrant(openai_api_key, collection_name)
     qdrant.add_texts(pdf_text)
 
+# 質問応答モデルを構築する関数
 def build_qa_model(llm, openai_api_key, collection_name):
     qdrant = load_qdrant(openai_api_key, collection_name)
     retriever = qdrant.as_retriever(search_type="similarity", search_kwargs={"k":10})
     return RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True, verbose=True)
 
+# コレクションを削除する関数
 def delete_collection(openai_api_key, collection_name):
     client = QdrantClient(path=QDRANT_PATH)
     collections = client.get_collections().collections
@@ -101,7 +111,7 @@ def delete_collection(openai_api_key, collection_name):
     if collection_name in collection_names:
         client.delete_collection(collection_name=collection_name)
         st.success("データベースが正常に削除されました。")
-        # Reset uploaded PDFs
+        # アップロードされたPDFをリセット
         user_folder = os.path.join(UPLOAD_FOLDER, collection_name)
         if os.path.exists(user_folder):
             for file in os.listdir(user_folder):
@@ -112,6 +122,7 @@ def delete_collection(openai_api_key, collection_name):
     else:
         st.warning("削除するデータベースが見つかりません。")
 
+# アップロードされたファイルを保存する関数
 def save_uploaded_file(uploaded_file, collection_name):
     user_folder = os.path.join(UPLOAD_FOLDER, collection_name)
     if not os.path.exists(user_folder):
@@ -121,12 +132,14 @@ def save_uploaded_file(uploaded_file, collection_name):
         f.write(uploaded_file.getbuffer())
     return file_path
 
+# アップロードされたファイルの一覧を取得する関数
 def list_uploaded_files(collection_name):
     user_folder = os.path.join(UPLOAD_FOLDER, collection_name)
     if not os.path.exists(user_folder):
         return []
     return os.listdir(user_folder)
 
+# PDFアップロードとベクトルデータベース構築のページを表示する関数
 def page_pdf_upload_and_build_vector_db(openai_api_key, collection_name):
     st.title("PDF Upload")
     container = st.container()
@@ -140,6 +153,7 @@ def page_pdf_upload_and_build_vector_db(openai_api_key, collection_name):
                     build_vector_store(pdf_text, openai_api_key, collection_name)
             st.success(f"Uploaded {uploaded_file.name}")
 
+# アップロードされたPDFの一覧ページを表示する関数
 def page_list_uploaded_pdfs(collection_name):
     st.title("Uploaded PDFs")
     uploaded_files = list_uploaded_files(collection_name)
@@ -150,11 +164,13 @@ def page_list_uploaded_pdfs(collection_name):
     else:
         st.write("No PDFs uploaded yet.")
 
+# 質問に対して回答を取得する関数
 def ask(qa, query):
     with get_openai_callback() as cb:
         answer = qa(query)
     return answer, cb.total_cost
 
+# アップロードされたPDFに質問するページを表示する関数
 def page_ask_my_pdf(openai_api_key, collection_name):
     st.title("Ask My PDF(s)")
     llm = select_model(openai_api_key)
@@ -177,6 +193,7 @@ def page_ask_my_pdf(openai_api_key, collection_name):
                 st.markdown("## Answer")
                 st.write(answer)
 
+# メイン関数
 def main():
     init_page()
 
