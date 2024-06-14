@@ -20,7 +20,7 @@ SESSION_FILE = "./data/session_data.json"
 
 # ページの初期化を行う関数
 def init_page():
-    st.set_page_config(page_title="RAG KnowledgeHub", page_icon="🌌")
+    st.set_page_config(page_title="RAG KnowledgeHub", page_icon="🌟")
     st.sidebar.title("RAG KnowledgeHub")
     if 'costs' not in st.session_state:
         st.session_state.costs = []
